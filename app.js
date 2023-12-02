@@ -7,7 +7,10 @@ const path = require('path');
 const app = express();
 const port = 3000;
 
-const jsonFilePath = path.join(__dirname, 'data', 'table_data.json');
+const dataDir = path.join(process.cwd(), 'data');
+const jsonFilePath = path.join(dataDir, 'table_data.json');
+
+
 let jsonData = [];
 
 async function scrapeData() {
@@ -45,6 +48,8 @@ async function scrapeData() {
     );
 
     // Save data to JSON file
+    // Create the directory if it doesn't exist
+    await fs.mkdir(dataDir, { recursive: true });
     await fs.writeFile(jsonFilePath, JSON.stringify(jsonData, null, 2));
 
     await browser.close();
