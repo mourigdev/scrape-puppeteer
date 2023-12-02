@@ -1,6 +1,5 @@
 const express = require('express');
 const puppeteer = require('puppeteer');
-require("dotenv").config();
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -12,19 +11,7 @@ let jsonData = [];
 
 async function scrapeData() {
   try {
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: [
-      "--disable-setuid-sandbox",
-      "--no-sandbox",
-      "--single-process",
-      "--no-zygote",
-    ],
-    executablePath:
-      process.env.NODE_ENV === "production"
-        ? process.env.PUPPETEER_EXECUTABLE_PATH
-        : puppeteer.executablePath()
-      });
+    const browser = await puppeteer.launch({ headless: true });
     const page = await browser.newPage();
     await page.goto('https://vetrelief.com/IncentiveJobs.phtml', { waitUntil: 'domcontentloaded' });
 
