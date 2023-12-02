@@ -13,20 +13,20 @@ const jsonFilePath = path.join(dataDir, 'table_data.json');
 
 let jsonData = [];
 
-async function scrapeData() {
+async function scrapeData(callback = ()=>{console.log('Scraping Done')}) {
   try {
     const browser = await puppeteer.launch({
       headless: true,
-      args: [
-      "--disable-setuid-sandbox",
-      "--no-sandbox",
-      "--single-process",
-      "--no-zygote",
-    ],
-    executablePath:
-      process.env.NODE_ENV === "production"
-        ? process.env.PUPPETEER_EXECUTABLE_PATH
-        : puppeteer.executablePath()
+    //   args: [
+    //   "--disable-setuid-sandbox",
+    //   "--no-sandbox",
+    //   "--single-process",
+    //   "--no-zygote",
+    // ],
+    // executablePath:
+    //   process.env.NODE_ENV === "production"
+    //     ? process.env.PUPPETEER_EXECUTABLE_PATH
+    //     : puppeteer.executablePath()
       });
     const page = await browser.newPage();
     await page.goto('https://vetrelief.com/IncentiveJobs.phtml', { waitUntil: 'domcontentloaded' });
@@ -51,9 +51,8 @@ async function scrapeData() {
     // Create the directory if it doesn't exist
     await fs.mkdir(dataDir, { recursive: true });
     await fs.writeFile(jsonFilePath, JSON.stringify(jsonData, null, 2));
-
     await browser.close();
-
+    callback()
     console.log('Data saved to JSON file:', jsonFilePath);
 
   } catch (error) {
@@ -87,18 +86,24 @@ app.get('/scrape', async (req, res) => {
       .catch(() => false);
 
     if (jsonFileExists) {
+      console.log('FILE data/table_date.json exist')
       // Read the existing JSON file
       const jsonFileContent = await fs.readFile(jsonFilePath, 'utf-8');
       jsonData = JSON.parse(jsonFileContent);
       console.log('Data loaded from existing JSON file:', jsonFilePath);
       if (await isFileModifiedRecently('./data/table_data.json', 5)) {
-        await scrapeData();
         res.json(jsonData);
+        await scrapeData();
       }else{
         res.json(jsonData);
       }
     } else {
-      await scrapeData().then(res.json(jsonData));
+      console.log('JSON FILE not exist')
+      await scrapeData(async()=>{
+        const jsonFileContent = await fs.readFile(jsonFilePath, 'utf-8');
+        jsonData = JSON.parse(jsonFileContent);
+        res.json(jsonData)
+      });
     }
 
     // Respond immediately with the current data
