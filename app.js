@@ -7,7 +7,7 @@ const path = require('path');
 const app = express();
 const port = 3000;
 
-const dataDir = path.join(process.cwd(), 'data');
+const dataDir = 'data';
 const jsonFilePath = path.join(dataDir, 'table_data.json');
 
 
