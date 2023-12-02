@@ -93,13 +93,16 @@ app.get('/scrape', async (req, res) => {
       console.log('Data loaded from existing JSON file:', jsonFilePath);
       if (await isFileModifiedRecently('./data/table_data.json', 5)) {
         await scrapeData();
+        res.json(jsonData);
+      }else{
+        res.json(jsonData);
       }
     } else {
-      await scrapeData();
+      await scrapeData().then(res.json(jsonData));
     }
 
     // Respond immediately with the current data
-    res.json(jsonData);
+    //res.json(jsonData);
 
   } catch (error) {
     console.error('An error occurred:', error);
