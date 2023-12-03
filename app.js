@@ -29,7 +29,7 @@ async function scrapeData(callback = ()=>{console.log('Scraping Done')}) {
         : puppeteer.executablePath()
       });
     const page = await browser.newPage();
-    await page.goto('https://vetrelief.com/specialists.phtml', { waitUntil: 'domcontentloaded' });
+    await page.goto('https://vetrelief.com/IncentiveJobs.phtml', { waitUntil: 'domcontentloaded' });
 
     await new Promise(resolve => setTimeout(resolve, 4000));
 
