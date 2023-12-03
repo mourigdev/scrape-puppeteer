@@ -29,31 +29,36 @@ async function scrapeData(callback = ()=>{console.log('Scraping Done')}) {
         : puppeteer.executablePath()
       });
     const page = await browser.newPage();
-    await page.goto('https://vetrelief.com/IncentiveJobs.phtml', { waitUntil: 'domcontentloaded' });
+    await page.goto('https://vetrelief.com/specialists.phtml', { waitUntil: 'domcontentloaded' });
 
     await new Promise(resolve => setTimeout(resolve, 4000));
 
     const tableData = await page.evaluate(() => {
-        const table = document.getElementById('lookingdata');
+      const table = document.getElementById('lookingdata');
+      if (table) {        
         const rows = Array.from(table.querySelectorAll('tr'));
-
         return rows.map(row => {
             const columns = Array.from(row.querySelectorAll('td'));
             return columns.map(column => column.innerText.trim());
         });
+      }else{
+        return [];
+      }
     });
 
-    const jsonData = [tableData[0]].concat(
+
+    const jsonData = tableData.length>=1 ? [tableData[0]].concat(
         tableData.slice(1).map(row => [...row.slice(0, 3), Array.isArray(row[3]) ? row[3] : row[3].split('\n')])
-    );
+    ):[] ;
+
 
     // Save data to JSON file
     // Create the directory if it doesn't exist
     await fs.mkdir(dataDir, { recursive: true });
-    await fs.writeFile(jsonFilePath, JSON.stringify(jsonData, null, 2));
+    jsonData.length>1 && await fs.writeFile(jsonFilePath, JSON.stringify(jsonData, null, 2));
     await browser.close();
-    callback()
-    console.log('Data saved to JSON file:', jsonFilePath);
+    jsonData.length>1 && callback();
+    jsonData.length>1 ? console.log('Data saved to JSON file:', jsonFilePath):console.log('no Data Found on website');
 
   } catch (error) {
     console.error('An error occurred during scraping:', error);
