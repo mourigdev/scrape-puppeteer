@@ -3,62 +3,113 @@ const puppeteer = require('puppeteer');
 require("dotenv").config();
 const fs = require('fs').promises;
 const path = require('path');
+const cors = require('cors');
+const cookiesFilePath = 'cookies.json';
 
 const app = express();
 const port = 3000;
 
+app.use(cors());
 const dataDir = 'data';
 const jsonFilePath = path.join(dataDir, 'table_data.json');
 
-
 let jsonData = [];
 
-async function scrapeData(callback = ()=>{console.log('Scraping Done')}) {
-  try {
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: [
-      "--disable-setuid-sandbox",
-      "--no-sandbox",
-      "--single-process",
-      "--no-zygote",
-    ],
-    executablePath:
-      process.env.NODE_ENV === "production"
-        ? process.env.PUPPETEER_EXECUTABLE_PATH
-        : puppeteer.executablePath()
-      });
-    const page = await browser.newPage();
-    await page.goto('https://vetrelief.com/IncentiveJobs.phtml', { waitUntil: 'domcontentloaded' });
+async function saveCookies(page) {
+    const cookies = await page.cookies();
+    await fs.writeFile(cookiesFilePath, JSON.stringify(cookies, null, 2));
+}
+  
+async function loadCookies(page) {
+    try {
+      const cookiesString = await fs.readFile(cookiesFilePath, 'utf-8');
+      const cookies = JSON.parse(cookiesString);
+      await page.setCookie(...cookies);
+    } catch (error) {
+      console.error('Error reading cookies file:', error);
+    }
+}
 
-    await new Promise(resolve => setTimeout(resolve, 4000));
+async function scrapeData(callback = () => { console.log('Scraping Done') }) {
+  try {
+      const browser = await puppeteer.launch({
+          headless: true,
+            args: [
+            "--disable-setuid-sandbox",
+            "--no-sandbox",
+            "--single-process",
+            "--no-zygote",
+            ],
+            executablePath:
+            process.env.NODE_ENV === "production"
+                ? process.env.PUPPETEER_EXECUTABLE_PATH
+                : puppeteer.executablePath()
+        });
+        
+    const page = await browser.newPage();
+    const cookiesFileExists = await fs.access(cookiesFilePath)
+    .then(() => true)
+    .catch(() => false);
+
+    if(cookiesFileExists){
+        await loadCookies(page);
+    }
+    
+    // Navigate to the login page
+    await page.goto('https://vetrelief.com/admin/?page=featuredads&sub=list', { waitUntil: 'domcontentloaded' });
+
+  // Check if login is required or you're already logged in
+  const isLoginPage = await page.evaluate(() => document.querySelector('#loginP2') !== null);
+
+  if (isLoginPage) {
+    // Log in if on the login page
+    await page.type("#loginP2", "upwork22");
+    await page.type("#loginP", "upwork22");
+    await page.click("#go > input[type=image]");
+
+    // Wait for the login process to complete
+    await page.waitForNavigation({ waitUntil: 'domcontentloaded' });
+
+    // Save the cookies after successful login
+    await saveCookies(page);
+  }else{
+      
+      await saveCookies(page);
+  }
+
+    
+    // Now, you are on the page where you can scrape the table data
 
     const tableData = await page.evaluate(() => {
-      const table = document.getElementById('lookingdata');
-      if (table) {        
-        const rows = Array.from(table.querySelectorAll('tr'));
+      const table = document.querySelectorAll(".pad-10")[0];
+      if (table) {
+        const rows = Array.from(table.querySelectorAll('.row'));
         return rows.map(row => {
-            const columns = Array.from(row.querySelectorAll('td'));
-            return columns.map(column => column.innerText.trim());
+          const columns = Array.from(row.querySelectorAll('.active-table-element'));
+        return columns.map(column => column.innerText.trim());
         });
-      }else{
+      } else {
         return [];
       }
+    //const el = document.querySelector("#main_content_Admin > div:nth-child(3) > div.text-center.txt-md.pad-10").textContent
+    // console.log(el)
+    // return el;
     });
 
+    // const jsonData = tableData.length >= 1 ? [tableData[0]].concat(
+    //     tableData.slice(1).map(row => [...row.slice(0, 3), Array.isArray(row[3]) ? row[3] : row[3].split('\n')])
+    //   ) : [];
 
-    const jsonData = tableData.length>=1 ? [tableData[0]].concat(
-        tableData.slice(1).map(row => [...row.slice(0, 3), Array.isArray(row[3]) ? row[3] : row[3].split('\n')])
-    ):[] ;
-
+    const jsonData = tableData.length >= 1 ? tableData : [];
 
     // Save data to JSON file
-    // Create the directory if it doesn't exist
     await fs.mkdir(dataDir, { recursive: true });
-    jsonData.length>1 && await fs.writeFile(jsonFilePath, JSON.stringify(jsonData, null, 2));
+    jsonData.length > 1 && await fs.writeFile(jsonFilePath, JSON.stringify(jsonData, null, 2));
     await browser.close();
-    jsonData.length>1 && callback();
-    jsonData.length>1 ? console.log('Data saved to JSON file:', jsonFilePath):console.log('no Data Found on website');
+    jsonData.length > 1 && callback();
+    jsonData.length > 1 ? console.log('Data saved to JSON file:', jsonFilePath) : console.log('no Data Found on website');
+
+    console.log(tableData)
 
   } catch (error) {
     console.error('An error occurred during scraping:', error);
@@ -83,9 +134,10 @@ async function isFileModifiedRecently(filePath, thresholdInMinutes) {
   }
 }
 
+
 app.get('/scrape', async (req, res) => {
   try {
-    // Check if the JSON file already exists
+    //Check if the JSON file already exists
     const jsonFileExists = await fs.access(jsonFilePath)
       .then(() => true)
       .catch(() => false);
@@ -99,21 +151,18 @@ app.get('/scrape', async (req, res) => {
       if (await isFileModifiedRecently('./data/table_data.json', 5)) {
         res.json(jsonData);
         await scrapeData();
-      }else{
+      } else {
         res.json(jsonData);
       }
     } else {
       console.log('JSON FILE not exist')
-      await scrapeData(async()=>{
+      await scrapeData(async () => {
         const jsonFileContent = await fs.readFile(jsonFilePath, 'utf-8');
         jsonData = JSON.parse(jsonFileContent);
         res.json(jsonData)
       });
     }
-
-    // Respond immediately with the current data
-    //res.json(jsonData);
-
+    // scrapeData();
   } catch (error) {
     console.error('An error occurred:', error);
     res.status(500).send('Internal Server Error');
@@ -123,3 +172,5 @@ app.get('/scrape', async (req, res) => {
 app.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);
 });
+
+
