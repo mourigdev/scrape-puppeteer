@@ -4,6 +4,7 @@ require("dotenv").config();
 const fs = require('fs').promises;
 const path = require('path');
 const cors = require('cors');
+const cookiesFilePath = 'data/cookies.json';
 
 const app = express();
 const port = 3000;
@@ -11,7 +12,6 @@ const port = 3000;
 app.use(cors());
 const dataDir = 'data';
 const jsonFilePath = path.join(dataDir, 'table_data.json');
-const cookiesFilePath = path.join(dataDir, 'cookies.json');
 
 let jsonData = [];
 
@@ -71,7 +71,10 @@ async function scrapeData(callback = () => { console.log('Scraping Done') }) {
     await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 });
 
     // Save the cookies after successful login
-    // await saveCookies(page);
+    await saveCookies(page);
+  }else{
+      
+      await saveCookies(page);
   }
 
     
@@ -169,5 +172,3 @@ app.get('/scrape', async (req, res) => {
 app.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);
 });
-
-
