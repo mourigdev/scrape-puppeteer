@@ -73,8 +73,7 @@ async function scrapeData(callback = () => { console.log('Scraping Done') }) {
     // Save the cookies after successful login
     await saveCookies(page);
   }else{
-      
-      await saveCookies(page);
+    await saveCookies(page);
   }
 
     
