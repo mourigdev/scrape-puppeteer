@@ -34,16 +34,16 @@ async function scrapeData(callback = () => { console.log('Scraping Done') }) {
   try {
       const browser = await puppeteer.launch({
           headless: true,
-            args: [
-            "--disable-setuid-sandbox",
-            "--no-sandbox",
-            "--single-process",
-            "--no-zygote",
-            ],
-            executablePath:
-            process.env.NODE_ENV === "production"
-                ? process.env.PUPPETEER_EXECUTABLE_PATH
-                : puppeteer.executablePath()
+            // args: [
+            // "--disable-setuid-sandbox",
+            // "--no-sandbox",
+            // "--single-process",
+            // "--no-zygote",
+            // ],
+            // executablePath:
+            // process.env.NODE_ENV === "production"
+            //     ? process.env.PUPPETEER_EXECUTABLE_PATH
+            //     : puppeteer.executablePath()
         });
         
     const page = await browser.newPage();
@@ -56,7 +56,7 @@ async function scrapeData(callback = () => { console.log('Scraping Done') }) {
     }
     
     // Navigate to the login page
-    await page.goto('https://vetrelief.com/admin/?page=featuredads&sub=list', { waitUntil: 'domcontentloaded' });
+    await page.goto('https://vetrelief.com/admin/?page=featuredads&sub=list', { waitUntil: 'domcontentloaded', timeout: 60000 });
 
   // Check if login is required or you're already logged in
   const isLoginPage = await page.evaluate(() => document.querySelector('#loginP2') !== null);
@@ -68,7 +68,7 @@ async function scrapeData(callback = () => { console.log('Scraping Done') }) {
     await page.click("#go > input[type=image]");
 
     // Wait for the login process to complete
-    await page.waitForNavigation({ waitUntil: 'domcontentloaded' });
+    await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 });
 
     // Save the cookies after successful login
     await saveCookies(page);
