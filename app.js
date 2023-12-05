@@ -34,16 +34,16 @@ async function scrapeData(callback = () => { console.log('Scraping Done') }) {
   try {
       const browser = await puppeteer.launch({
           headless: true,
-            // args: [
-            // "--disable-setuid-sandbox",
-            // "--no-sandbox",
-            // "--single-process",
-            // "--no-zygote",
-            // ],
-            // executablePath:
-            // process.env.NODE_ENV === "production"
-            //     ? process.env.PUPPETEER_EXECUTABLE_PATH
-            //     : puppeteer.executablePath()
+            args: [
+            "--disable-setuid-sandbox",
+            "--no-sandbox",
+            "--single-process",
+            "--no-zygote",
+            ],
+            executablePath:
+            process.env.NODE_ENV === "production"
+                ? process.env.PUPPETEER_EXECUTABLE_PATH
+                : puppeteer.executablePath()
         });
         
     const page = await browser.newPage();
@@ -71,10 +71,7 @@ async function scrapeData(callback = () => { console.log('Scraping Done') }) {
     await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 });
 
     // Save the cookies after successful login
-    await saveCookies(page);
-  }else{
-      
-      await saveCookies(page);
+    // await saveCookies(page);
   }
 
     
