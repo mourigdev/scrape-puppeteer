@@ -4,7 +4,6 @@ require("dotenv").config();
 const fs = require('fs').promises;
 const path = require('path');
 const cors = require('cors');
-const cookiesFilePath = 'data/cookies.json';
 
 const app = express();
 const port = 3000;
@@ -12,6 +11,7 @@ const port = 3000;
 app.use(cors());
 const dataDir = 'data';
 const jsonFilePath = path.join(dataDir, 'table_data.json');
+const cookiesFilePath = path.join(dataDir, 'cookies.json');
 
 let jsonData = [];
 
@@ -34,16 +34,16 @@ async function scrapeData(callback = () => { console.log('Scraping Done') }) {
   try {
       const browser = await puppeteer.launch({
           headless: true,
-            args: [
-            "--disable-setuid-sandbox",
-            "--no-sandbox",
-            "--single-process",
-            "--no-zygote",
-            ],
-            executablePath:
-            process.env.NODE_ENV === "production"
-                ? process.env.PUPPETEER_EXECUTABLE_PATH
-                : puppeteer.executablePath()
+            // args: [
+            // "--disable-setuid-sandbox",
+            // "--no-sandbox",
+            // "--single-process",
+            // "--no-zygote",
+            // ],
+            // executablePath:
+            // process.env.NODE_ENV === "production"
+            //     ? process.env.PUPPETEER_EXECUTABLE_PATH
+            //     : puppeteer.executablePath()
         });
         
     const page = await browser.newPage();
