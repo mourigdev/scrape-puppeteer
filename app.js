@@ -4,7 +4,7 @@ require("dotenv").config();
 const fs = require('fs').promises;
 const path = require('path');
 const cors = require('cors');
-const cookiesFilePath = 'cookies.json';
+const cookiesFilePath = 'data/cookies.json';
 
 const app = express();
 const port = 3000;
