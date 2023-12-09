@@ -34,16 +34,16 @@ async function scrapeData(callback = () => { console.log('Scraping Done') }) {
   try {
       const browser = await puppeteer.launch({
           headless: true,
-            // args: [
-            // "--disable-setuid-sandbox",
-            // "--no-sandbox",
-            // "--single-process",
-            // "--no-zygote",
-            // ],
-            // executablePath:
-            // process.env.NODE_ENV === "production"
-            //     ? process.env.PUPPETEER_EXECUTABLE_PATH
-            //     : puppeteer.executablePath()
+            args: [
+            "--disable-setuid-sandbox",
+            "--no-sandbox",
+            "--single-process",
+            "--no-zygote",
+            ],
+            executablePath:
+            process.env.NODE_ENV === "production"
+                ? process.env.PUPPETEER_EXECUTABLE_PATH
+                : puppeteer.executablePath()
         });
         
     const page = await browser.newPage();
@@ -166,10 +166,10 @@ async function scrapeDetails(id, callback = () => { console.log('Scraping Done')
 
     const tableData = await page.evaluate(() => {
       const data = [
-        document.querySelector("#mainContent > form > table:nth-child(6) > tbody > tr:nth-child(1) > td:nth-child(2)").textContent,
-        document.querySelector("#mainContent > form > table:nth-child(6) > tbody > tr:nth-child(2) > td:nth-child(2)").textContent,
-        document.querySelector("#mainContent > form > table:nth-child(23) > tbody > tr > td > img").src,
-        document.querySelector("#mainContent > form > table:nth-child(23) > tbody > tr > td").textContent
+        document.querySelector("#mainContent > form > table:nth-child(6) > tbody > tr:nth-child(1) > td:nth-child(2)") != null ? document.querySelector("#mainContent > form > table:nth-child(6) > tbody > tr:nth-child(1) > td:nth-child(2)").textContent : '',
+        document.querySelector("#mainContent > form > table:nth-child(6) > tbody > tr:nth-child(2) > td:nth-child(2)")  != null ? document.querySelector("#mainContent > form > table:nth-child(6) > tbody > tr:nth-child(2) > td:nth-child(2)").textContent : '',
+        document.querySelector("#mainContent > form > table:nth-child(23) > tbody > tr > td > img") != null ? document.querySelector("#mainContent > form > table:nth-child(23) > tbody > tr > td > img").src : '',
+        document.querySelector("#mainContent > form > table:nth-child(23) > tbody > tr > td")  != null ? document.querySelector("#mainContent > form > table:nth-child(23) > tbody > tr > td").textContent : ''
       ]
         return data;
     //const el = document.querySelector("#main_content_Admin > div:nth-child(3) > div.text-center.txt-md.pad-10").textContent
