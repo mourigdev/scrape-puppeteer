@@ -1,6 +1,6 @@
 const express = require('express');
 const puppeteer = require('puppeteer');
-require("dotenv").config();
+require('dotenv').config();
 const fs = require('fs').promises;
 const path = require('path');
 const cors = require('cors');
@@ -13,231 +13,208 @@ app.use(cors());
 const dataDir = 'data';
 const jsonFilePath = path.join(dataDir, 'table_data.json');
 
+let browser;
 let jsonData = [];
 
+async function initializeBrowser() {
+  browser = await puppeteer.launch({
+    headless: true,
+      //     args: [
+      // "--disable-setuid-sandbox",
+      // "--no-sandbox",
+      // "--single-process",
+      // "--no-zygote",
+      // ],
+      // executablePath:
+      // process.env.NODE_ENV === "production"
+      //     ? process.env.PUPPETEER_EXECUTABLE_PATH
+      //     : puppeteer.executablePath()
+  });
+}
+
 async function saveCookies(page) {
-    const cookies = await page.cookies();
-    await fs.writeFile(cookiesFilePath, JSON.stringify(cookies, null, 2));
+  const cookies = await page.cookies();
+  await fs.writeFile(cookiesFilePath, JSON.stringify(cookies, null, 2));
 }
-  
+
 async function loadCookies(page) {
-    try {
-      const cookiesString = await fs.readFile(cookiesFilePath, 'utf-8');
-      const cookies = JSON.parse(cookiesString);
-      await page.setCookie(...cookies);
-    } catch (error) {
-      console.error('Error reading cookies file:', error);
-    }
+  try {
+    const cookiesString = await fs.readFile(cookiesFilePath, 'utf-8');
+    const cookies = JSON.parse(cookiesString);
+    await page.setCookie(...cookies);
+  } catch (error) {
+    console.error('Error reading cookies file:', error);
+  }
 }
 
-async function scrapeData(callback = () => { console.log('Scraping Done') }) {
+async function scrapeData(callback = () => {
+  console.log('Scraping Done');
+}) {
   try {
-      const browser = await puppeteer.launch({
-          headless: true,
-            // args: [
-            // "--disable-setuid-sandbox",
-            // "--no-sandbox",
-            // "--single-process",
-            // "--no-zygote",
-            // ],
-            // executablePath:
-            // process.env.NODE_ENV === "production"
-            //     ? process.env.PUPPETEER_EXECUTABLE_PATH
-            //     : puppeteer.executablePath()
-        });
-        
     const page = await browser.newPage();
-    const cookiesFileExists = await fs.access(cookiesFilePath)
-    .then(() => true)
-    .catch(() => false);
+    await loadCookies(page);
 
-    if(cookiesFileExists){
-        await loadCookies(page);
+    await page.goto('https://vetrelief.com/admin/?page=featuredads&sub=list', {
+      waitUntil: 'domcontentloaded',
+      timeout: 60000,
+    });
+
+    const isLoginPage = await page.evaluate(
+      () => document.querySelector('#loginP2') !== null
+    );
+
+    if (isLoginPage) {
+      await page.type("#loginP2", "upwork22");
+      await page.type("#loginP", "upwork22");
+      await page.click("#go > input[type=image]");
+      await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 });
+      await saveCookies(page);
+    } else {
+      await saveCookies(page);
     }
-    
-    // Navigate to the login page
-    await page.goto('https://vetrelief.com/admin/?page=featuredads&sub=list', { waitUntil: 'domcontentloaded', timeout: 60000 });
-
-  // Check if login is required or you're already logged in
-  const isLoginPage = await page.evaluate(() => document.querySelector('#loginP2') !== null);
-
-  if (isLoginPage) {
-    // Log in if on the login page
-    await page.type("#loginP2", "upwork22");
-    await page.type("#loginP", "upwork22");
-    await page.click("#go > input[type=image]");
-
-    // Wait for the login process to complete
-    await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 });
-
-    // Save the cookies after successful login
-    await saveCookies(page);
-  }else{
-    await saveCookies(page);
-  }
-
-    
-    // Now, you are on the page where you can scrape the table data
 
     const tableData = await page.evaluate(() => {
-      const table = document.querySelectorAll(".pad-10")[0];
+      const table = document.querySelectorAll('.pad-10')[0];
       if (table) {
         const rows = Array.from(table.querySelectorAll('.row'));
-        return rows.map(row => {
-          const columns = Array.from(row.querySelectorAll('.active-table-element'));
-        return columns.map(column => column.innerText.trim());
-        });
+        return rows.map(row =>
+          Array.from(row.querySelectorAll('.active-table-element')).map(column =>
+            column.innerText.trim()
+          )
+        );
       } else {
         return [];
       }
-    //const el = document.querySelector("#main_content_Admin > div:nth-child(3) > div.text-center.txt-md.pad-10").textContent
-    // console.log(el)
-    // return el;
     });
 
-    // const jsonData = tableData.length >= 1 ? [tableData[0]].concat(
-    //     tableData.slice(1).map(row => [...row.slice(0, 3), Array.isArray(row[3]) ? row[3] : row[3].split('\n')])
-    //   ) : [];
-
-    const jsonData = tableData.length >= 1 ? tableData : [];
-
-    // Save data to JSON file
+    jsonData = tableData;
     await fs.mkdir(dataDir, { recursive: true });
-    jsonData.length > 1 && await fs.writeFile(jsonFilePath, JSON.stringify(jsonData, null, 2));
-    await browser.close();
+    jsonData.length > 1 && (await fs.writeFile(jsonFilePath, JSON.stringify(jsonData, null, 2)));
+
+    await page.close(); // Close the tab after scraping
+
     jsonData.length > 1 && callback();
-    jsonData.length > 1 ? console.log('Data saved to JSON file:', jsonFilePath) : console.log('no Data Found on website');
-
-    console.log(tableData)
-
+    jsonData.length > 1
+      ? console.log('Data saved to JSON file:', jsonFilePath)
+      : console.log('No data found on the website');
+    console.log(tableData);
   } catch (error) {
     console.error('An error occurred during scraping:', error);
   }
 }
 
-async function scrapeDetails(id, callback = () => { console.log('Scraping Done') }) {
+async function scrapeDetails(id, res, callback = () => {
+  console.log('Scraping Done');
+}) {
   try {
-      const browser = await puppeteer.launch({
-          headless: true,
-            // args: [
-            // "--disable-setuid-sandbox",
-            // "--no-sandbox",
-            // "--single-process",
-            // "--no-zygote",
-            // ],
-            // executablePath:
-            // process.env.NODE_ENV === "production"
-            //     ? process.env.PUPPETEER_EXECUTABLE_PATH
-            //     : puppeteer.executablePath()
-        });
-        
-    const page = await browser.newPage();
-    const cookiesFileExists = await fs.access(cookiesFilePath)
-    .then(() => true)
-    .catch(() => false);
+    const filePath = path.join(dataDir, `${id}.json`);
+    const fileExists = await fs.access(filePath).then(
+      () => true,
+      () => false
+    );
 
-    if(cookiesFileExists){
-        await loadCookies(page);
+    if (fileExists) {
+      const fileContent = await fs.readFile(filePath, 'utf-8');
+      const jsonDataFromFile = JSON.parse(fileContent);
+      res.json(jsonDataFromFile);
+      return;
     }
-    
-    // Navigate to the login page
-    await page.goto(`https://vetrelief.com/doctorlogin/?page=jobs_perm&sub=detail&id=${id}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
-  // Check if login is required or you're already logged in
-  const isLoginPage = await page.evaluate(() => document.querySelector('#loginP2') !== null);
+    const page = await browser.newPage();
+    await loadCookies(page);
 
-  if (isLoginPage) {
-    // Log in if on the login page
-    await page.type("#loginP2", "upwork22");
-    await page.type("#loginP", "upwork22");
-    await page.click("#go > input[type=image]");
-
-    // Wait for the login process to complete
-    await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 });
-
-    // Save the cookies after successful login
-    await saveCookies(page);
-  }else{
-    await saveCookies(page);
-  }
-
-    
-    // Now, you are on the page where you can scrape the table data
-
-    const tableData = await page.evaluate(() => {
-      const data = [
-        document.querySelector("#mainContent > form > table:nth-child(6) > tbody > tr:nth-child(1) > td:nth-child(2)") != null ? document.querySelector("#mainContent > form > table:nth-child(6) > tbody > tr:nth-child(1) > td:nth-child(2)").textContent : '',
-        document.querySelector("#mainContent > form > table:nth-child(6) > tbody > tr:nth-child(2) > td:nth-child(2)")  != null ? document.querySelector("#mainContent > form > table:nth-child(6) > tbody > tr:nth-child(2) > td:nth-child(2)").textContent : '',
-        document.querySelector("#mainContent > form > table:nth-child(23) > tbody > tr > td > img") != null ? document.querySelector("#mainContent > form > table:nth-child(23) > tbody > tr > td > img").src : '',
-        document.querySelector("#mainContent > form > table:nth-child(23) > tbody > tr > td")  != null ? document.querySelector("#mainContent > form > table:nth-child(23) > tbody > tr > td").textContent : ''
-      ]
-        return data;
-    //const el = document.querySelector("#main_content_Admin > div:nth-child(3) > div.text-center.txt-md.pad-10").textContent
-    // console.log(el)
-    // return el;
+    await page.goto(`https://vetrelief.com/doctorlogin/?page=jobs_perm&sub=detail&id=${id}`, {
+      waitUntil: 'domcontentloaded',
+      timeout: 60000,
     });
 
-    // const jsonData = tableData.length >= 1 ? [tableData[0]].concat(
-    //     tableData.slice(1).map(row => [...row.slice(0, 3), Array.isArray(row[3]) ? row[3] : row[3].split('\n')])
-    //   ) : [];
+    const isLoginPage = await page.evaluate(
+      () => document.querySelector('#loginP2') !== null
+    );
 
-    const jsonData = tableData;
+    if (isLoginPage) {
+      await page.type("#loginP2", "upwork22");
+      await page.type("#loginP", "upwork22");
+      await page.click("#go > input[type=image]");
+      await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 });
+      await saveCookies(page);
+    } else {
+      await saveCookies(page);
+    }
 
-    // Save data to JSON file
-    // await fs.mkdir(dataDir, { recursive: true });
-    // jsonData.length > 1 && await fs.writeFile(jsonFilePath, JSON.stringify(jsonData, null, 2));
-    await browser.close();
+    const tableData = await page.evaluate(() => {
+      return [
+        document.querySelector("#mainContent > form > table:nth-child(6) > tbody > tr:nth-child(1) > td:nth-child(2)")?.textContent || '',
+        document.querySelector("#mainContent > form > table:nth-child(6) > tbody > tr:nth-child(2) > td:nth-child(2)")?.textContent || '',
+        document.querySelector("td[bgcolor='#ddddff'] > img")?.src || '',
+        document.querySelector("#mainContent > form > table:nth-child(23) > tbody > tr > td")?.textContent || '',
+      ];
+    });
+
+    jsonData = tableData;
+
+    await fs.writeFile(filePath, JSON.stringify(jsonData, null, 2));
+
     jsonData.length > 1 && callback(jsonData);
-    jsonData.length > 1 ? console.log('Data saved to JSON file:', jsonFilePath) : console.log('no Data Found on website');
-
-    console.log(tableData)
-
+    jsonData.length > 1
+      ? console.log(`Data saved to JSON file: ${filePath}`)
+      : console.log('No data found on the website');
+    console.log(tableData);
+    await page.close(); // Close the tab after scraping
   } catch (error) {
     console.error('An error occurred during scraping:', error);
+    res.status(500).send('Internal Server Error');
   }
 }
 
 async function isFileModifiedRecently(filePath, thresholdInMinutes) {
   try {
     const stats = await fs.stat(filePath);
-    const lastModifiedTime = stats.mtime; // Modification time
+    const lastModifiedTime = stats.mtime;
     const currentTime = new Date();
-
-    // Calculate the time difference in minutes
     const timeDifferenceInMinutes = (currentTime - lastModifiedTime) / (1000 * 60);
-
-    // Check if the file has been modified within the threshold
     const isModifiedRecently = timeDifferenceInMinutes > thresholdInMinutes;
     console.log(isModifiedRecently, timeDifferenceInMinutes);
     return isModifiedRecently;
   } catch (error) {
     console.error('Error getting file information:', error);
+    throw error; // Propagate the error
   }
 }
 
-
 app.get('/scrape', async (req, res) => {
-
   try {
-    if (req.query.id) {
-      await scrapeDetails(req.query.id, async (data) => {
-        // const jsonFileContent = await fs.readFile(jsonFilePath, 'utf-8');
-        // jsonData = JSON.parse(jsonFileContent);
-        res.json(data)
-      });
-    }else{
+    if (!browser) {
+      await initializeBrowser();
+    }
 
-      //Check if the JSON file already exists
-      const jsonFileExists = await fs.access(jsonFilePath)
-        .then(() => true)
-        .catch(() => false);
-  
+    if (req.query.id) {
+      await scrapeDetails(req.query.id, res, async (data) => {
+        const filePath = path.join(dataDir, `${req.query.id}.json`);
+        const fileExists = await fs.access(filePath).then(
+      () => true,
+      () => false
+    );
+
+    if (fileExists) {
+      const fileContent = await fs.readFile(filePath, 'utf-8');
+      const jsonDataFromFile = JSON.parse(fileContent);
+      res.json(jsonDataFromFile);
+      return;
+    }
+        // res.json(data);
+      });
+    } else {
+      const jsonFileExists = await fs.access(jsonFilePath).then(
+        () => true,
+        () => false
+      );
+
       if (jsonFileExists) {
-        console.log('FILE data/table_date.json exist')
-        // Read the existing JSON file
+        console.log('FILE data/table_date.json exists');
         const jsonFileContent = await fs.readFile(jsonFilePath, 'utf-8');
         jsonData = JSON.parse(jsonFileContent);
-        console.log('Data loaded from existing JSON file:', jsonFilePath);
+
         if (await isFileModifiedRecently('./data/table_data.json', 5)) {
           res.json(jsonData);
           await scrapeData();
@@ -245,15 +222,14 @@ app.get('/scrape', async (req, res) => {
           res.json(jsonData);
         }
       } else {
-        console.log('JSON FILE not exist')
+        console.log('JSON FILE does not exist');
         await scrapeData(async () => {
           const jsonFileContent = await fs.readFile(jsonFilePath, 'utf-8');
           jsonData = JSON.parse(jsonFileContent);
-          res.json(jsonData)
+          res.json(jsonData);
         });
       }
     }
-    // scrapeData();
   } catch (error) {
     console.error('An error occurred:', error);
     res.status(500).send('Internal Server Error');
