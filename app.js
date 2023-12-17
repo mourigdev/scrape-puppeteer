@@ -17,9 +17,10 @@ let browser;
 let jsonData = [];
 
 async function initializeBrowser() {
-  browser = await puppeteer.launch({
-    headless: true,
-      //     args: [
+  try {
+    browser = await puppeteer.launch({
+      headless: true,
+            //     args: [
       // "--disable-setuid-sandbox",
       // "--no-sandbox",
       // "--single-process",
@@ -29,8 +30,14 @@ async function initializeBrowser() {
       // process.env.NODE_ENV === "production"
       //     ? process.env.PUPPETEER_EXECUTABLE_PATH
       //     : puppeteer.executablePath()
-  });
+    });
+  } catch (error) {
+    console.error('Error initializing browser:', error);
+    // Handle the error as needed, e.g., throw an exception or take appropriate action.
+  }
 }
+
+
 
 async function saveCookies(page) {
   const cookies = await page.cookies();
@@ -143,11 +150,33 @@ async function scrapeDetails(id, res, callback = () => {
     }
 
     const tableData = await page.evaluate(() => {
+      const tdElement = document.querySelectorAll('td[align="center"]')[1];
+      var textArray;
+      if (tdElement) {
+        // Get the innerHTML of the td element and split it into an array
+        textArray = tdElement.innerHTML.split('<br>');
+    
+        // Replace "&nbsp;" with a regular space and trim each element in the array
+        textArray = textArray.map(function (text) {
+            return text.replace(/&nbsp;/g, ' ').trim();
+        });
+    
+        // Filter out empty strings from the array
+        textArray = textArray.filter(function (text) {
+            return text !== '';
+        });
+    
+        // Log the resulting array to the console
+        console.log(textArray);
+    } else {
+        console.log('No matching td element found.');
+    }
       return [
         document.querySelector("#mainContent > form > table:nth-child(6) > tbody > tr:nth-child(1) > td:nth-child(2)")?.textContent || '',
         document.querySelector("#mainContent > form > table:nth-child(6) > tbody > tr:nth-child(2) > td:nth-child(2)")?.textContent || '',
         document.querySelector("td[bgcolor='#ddddff'] > img")?.src || '',
-        document.querySelector("#mainContent > form > table:nth-child(23) > tbody > tr > td")?.textContent || '',
+        document.querySelector('td[bgcolor="#ddddff"]:not([align])')?.textContent || '',
+        document.querySelector('td[align="center"]').textContent === 'Practice Type:' ? textArray : []
       ];
     });
 
